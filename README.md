@@ -23,7 +23,7 @@ The project is intended to make deployment repeatable and operational behavior e
 
 The diagram below is a **reference layout**, not a claim that every connection or endpoint is configured in this repository. Update service names, ports, and scrape targets to match the Compose and Prometheus configuration.
 
-```mermaid
+mermaid
 flowchart LR
     U[User or client] -->|HTTP: [APP_PORT]| APP[Flask application]
     APP -. served by .-> GUNI[Gunicorn]
@@ -34,7 +34,7 @@ flowchart LR
     EC2 --- CAD
     EC2 --- PROM
     EC2 --- GRAF
-```
+
 
 ### Data Flow
 
@@ -219,17 +219,6 @@ Select only skills demonstrated by the actual implementation:
 - Application and infrastructure observability
 - Deployment documentation and security fundamentals
 
----
 
-## Repository Verification Checklist
 
-Before publishing this README, confirm each item against the repository and deployed environment:
 
-- [ ] Replace all `[PLACEHOLDER]` values or remove sections that do not apply.
-- [ ] Confirm Compose filename, service names, ports, images, volumes, and restart policies.
-- [ ] Confirm the Flask entry point, Gunicorn command, and application route(s).
-- [ ] Confirm Prometheus scrape targets, intervals, paths, and actual metric names.
-- [ ] Confirm Grafana access method, data source, dashboards, and authentication.
-- [ ] Confirm the actual EC2 network rules and do not publish private monitoring ports unintentionally.
-- [ ] Run the documented commands in a safe environment and revise them to match the deployed setup.
-- [ ] Remove any claim about alerts, health checks, recovery, or automation that is not implemented and verified.
