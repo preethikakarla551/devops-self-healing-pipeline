@@ -23,18 +23,18 @@ The project is intended to make deployment repeatable and operational behavior e
 
 The diagram below is a **reference layout**, not a claim that every connection or endpoint is configured in this repository. Update service names, ports, and scrape targets to match the Compose and Prometheus configuration.
 
-mermaid
+```mermaid
 flowchart LR
-    U[User or client] -->|HTTP: [APP_PORT]| APP[Flask application]
-    APP -. served by .-> GUNI[Gunicorn]
-    CAD[cAdvisor] -->|container metrics: [CADVISOR_PORT]| PROM[Prometheus]
-    APP -. optional application metrics: [METRICS_PATH] .-> PROM
-    PROM -->|PromQL queries| GRAF[Grafana dashboards]
-    EC2[AWS EC2: Ubuntu] --- APP
+    U["User or client"] -->|"HTTP to APP_PORT"| APP["Flask application"]
+    APP -. "served by" .-> GUNI["Gunicorn"]
+    CAD["cAdvisor"] -->|"container metrics on CADVISOR_PORT"| PROM["Prometheus"]
+    APP -. "optional metrics at METRICS_PATH" .-> PROM
+    PROM -->|"PromQL queries"| GRAF["Grafana dashboards"]
+    EC2["AWS EC2: Ubuntu"] --- APP
     EC2 --- CAD
     EC2 --- PROM
     EC2 --- GRAF
-
+```
 
 ### Data Flow
 
