@@ -1,0 +1,29 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Deploy to AWS EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            if [ ! -d "~/devops-self-healing-pipeline" ]; then
+              git clone https://github.com/${{ github.repository }}.git ~/devops-self-healing-pipeline
+            fi
+            cd ~/devops-self-healing-pipeline
+            git pull origin main
+            docker compose down
+            docker compose up -d --build
+            docker image prune -f
