@@ -16,24 +16,21 @@ The project consists of three main operational phases: **CI/CD Deployment**, **P
 
 ```mermaid
 graph TD
-    %% 1. Deployment Phase
     subgraph 1. CI/CD Deployment Trigger
         A[Developer Push to main] -->|Git Push| B[GitHub Repository]
         B -->|Triggers Workflow| C[GitHub Actions Runner]
         C -->|SSH Auth via EC2_SSH_KEY| D[AWS EC2 Instance 52.66.249.190]
     end
 
-    %% 2. Execution & Ingress Phase
     subgraph 2. Production Runtime Environment
         D -->|Pulls Code & Rebuilds| E[Docker Compose]
-        E -->|Runs Container| F[Flask Web App web_app :5000]
+        E -->|Runs Container| F[Flask Web App web_app Port 5000]
         G[Public User / Client] -->|HTTP Request Port 80| H[Nginx Reverse Proxy]
-        H -->|Proxy Pass [http://127.0.0.1:5000](http://127.0.0.1:5000)| F
+        H -->|Proxy Pass Port 5000| F
     end
 
-    %% 3. Self-Healing Phase
     subgraph 3. Automated Self-Healing Mechanism
-        I[Linux Crontab */2 * * * *] -->|Executes Every 2 Min| J[scripts/health_check.sh]
+        I[Linux Crontab Every 2 Min] -->|Executes| J[scripts/health_check.sh]
         J -->|Polls GET /health| F
         J -- HTTP 200 OK --> K[Log Healthy Status]
         J -- HTTP Error / Timeout --> L[Trigger docker restart web_app]
