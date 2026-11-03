@@ -1,167 +1,235 @@
-<div align="center">
+# Automated Self-Healing Microservices & Telemetry Pipeline
 
-# ⚡ Self-Healing Microservices & Observability Pipeline
+> **Repository-specific setup required:** This README is a polished project template based on the stated technology stack. The source repository was not available while preparing it. Replace every `[PLACEHOLDER]`, verify every example service name, endpoint, metric, port, path, and command against your actual files, and remove any capability that your implementation does not provide.
 
-[![AWS EC2](https://img.shields.io/badge/Infrastructure-AWS_EC2-FF9900?style=for-the-badge&logo=amazonaws&logoColor=white)](https://aws.amazon.com/ec2/)
-[![Docker Compose](https://img.shields.io/badge/Containers-Docker_Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
-[![Prometheus](https://img.shields.io/badge/Metrics-Prometheus-E6522C?style=for-the-badge&logo=prometheus&logoColor=white)](https://prometheus.io/)
-[![Grafana](https://img.shields.io/badge/Observability-Grafana-F46800?style=for-the-badge&logo=grafana&logoColor=white)](https://grafana.com/)
-[![Python](https://img.shields.io/badge/Language-Python_3.x-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
+<!-- Optional: add a project banner or architecture image here. -->
 
-**A containerized Flask service with health monitoring, Prometheus metrics, and Grafana dashboards—deployed on an AWS EC2 host.**
+## 1. Project Overview
 
-[Architecture](#-architecture) •
-[Services](#-services) •
-[Run locally](#-run-locally) •
-[Deploy on EC2](#-deploy-on-aws-ec2) •
-[Observability](#-observability) •
-[Security and cost](#-security-and-cost)
+This project demonstrates a containerized Python web application alongside a telemetry stack for observing service and container health. The stated stack includes AWS EC2 running Ubuntu, Docker Compose, Flask served with Gunicorn, cAdvisor, Prometheus, Grafana, and Python.
 
-</div>
+The project is intended to make deployment repeatable and operational behavior easier to inspect. Any automated recovery behavior depends on the actual Docker Compose health checks, restart policies, application logic, and alerting configured in the repository; verify those before describing them as implemented.
 
----
+## 2. Project Objectives
 
-## 📌 Project overview
+- Package the Flask application and supporting components in containers.
+- Deploy the stack on an Ubuntu-based AWS EC2 instance using Docker Compose.
+- Collect and visualize configured telemetry with Prometheus and Grafana.
+- Observe container resource usage through cAdvisor, where configured.
+- Demonstrate recovery behavior using only the mechanisms present in the project.
+- Document setup, operation, troubleshooting, and security considerations.
 
-This project brings together a web service and an observability stack in a four-container Docker Compose deployment:
+## 3. Architecture Overview
 
-- **Flask + Gunicorn** serves the application.
-- **cAdvisor** collects container resource metrics.
-- **Prometheus** scrapes and stores metrics.
-- **Grafana** queries Prometheus for dashboards and operational visibility.
+The diagram below is a **reference layout**, not a claim that every connection or endpoint is configured in this repository. Update service names, ports, and scrape targets to match the Compose and Prometheus configuration.
 
-The stack is designed to demonstrate container health checks, restart policies, and telemetry collection on an Ubuntu LTS EC2 instance. Recovery behavior depends on the health checks and restart policies configured in the Compose files.
-
-## 🏗️ Architecture
-
-~~~mermaid
+```mermaid
 flowchart LR
-    User["Operator"] -->|Browser :3000| Grafana
+    U[User or client] -->|HTTP: [APP_PORT]| APP[Flask application]
+    APP -. served by .-> GUNI[Gunicorn]
+    CAD[cAdvisor] -->|container metrics: [CADVISOR_PORT]| PROM[Prometheus]
+    APP -. optional application metrics: [METRICS_PATH] .-> PROM
+    PROM -->|PromQL queries| GRAF[Grafana dashboards]
+    EC2[AWS EC2: Ubuntu] --- APP
+    EC2 --- CAD
+    EC2 --- PROM
+    EC2 --- GRAF
+```
 
-    subgraph EC2["AWS EC2 · Ubuntu LTS"]
-        subgraph Compose["Docker Compose network"]
-            App["Flask + Gunicorn<br/>Web service · :5000"]
-            Cadvisor["cAdvisor<br/>Container metrics · :8080"]
-            Prometheus["Prometheus<br/>Time-series metrics · :9090"]
-            Grafana["Grafana<br/>Dashboards · :3000"]
-        end
+### Data Flow
 
-        Cadvisor -->|Reads container runtime metrics| Docker["Docker host"]
-        App -->|Application metrics endpoint<br/>as configured| Prometheus
-        Cadvisor -->|Resource metrics| Prometheus
-        Grafana -->|PromQL queries| Prometheus
-    end
-~~~
+1. A client sends a request to the published application endpoint, if one is configured.
+2. Gunicorn serves the Flask application, if it is the configured process entry point.
+3. cAdvisor exposes container telemetry when its service is enabled and reachable.
+4. Prometheus scrapes the targets and metrics paths defined in its configuration.
+5. Grafana queries the configured Prometheus data source and renders dashboards.
+6. An operator reviews the available telemetry and investigates service or resource issues.
 
-> Keep Prometheus and cAdvisor private to the host or Compose network. Publish only the ports operators and users actually need.
+Confirm the actual ports, scrape interval, targets, metrics path, and Grafana data source in the repository before relying on this flow.
 
-## 🧩 Services
+## 4. Technology Stack
 
-| Service | Role | Container port |
-|---|---|---:|
-| Flask + Gunicorn | Serves the web application | 5000 |
-| cAdvisor | Exposes container resource metrics | 8080 |
-| Prometheus | Scrapes and stores time-series metrics | 9090 |
-| Grafana | Displays dashboards and queries Prometheus | 3000 |
+| Technology | Stated or example role |
+|---|---|
+| AWS EC2 | Cloud virtual machine hosting the deployment |
+| Ubuntu | EC2 operating system |
+| Docker | Container runtime |
+| Docker Compose | Multi-container application definition and lifecycle |
+| Python | Application language |
+| Flask | Web application framework |
+| Gunicorn | WSGI application server, if configured as the runtime |
+| cAdvisor | Container resource telemetry, if enabled |
+| Prometheus | Metrics scraping and time-series storage, if configured |
+| Grafana | Metrics visualization, if configured |
 
-Actual host port mappings and metrics paths are defined by the Compose and Prometheus configuration in this repository.
+## 5. Key Engineering Highlights
 
-## 🚀 Run locally
+Document only the items that are present in the source repository:
+
+- **Containerized services:** Describe the services declared in `[COMPOSE_FILE]`.
+- **Repeatable deployment:** Docker Compose can define service configuration and dependencies; verify the actual deployment steps and environment variables.
+- **Telemetry pipeline:** Prometheus and Grafana can provide collection and visualization when targets and data sources are configured.
+- **Recovery configuration:** Docker restart policies may restart a container after it exits. They do not by themselves prove application health or guarantee recovery from every failure.
+- **Operational documentation:** This README provides a place to record verified setup, access, and recovery procedures.
+
+## 6. Deployment & Quick Start
+
+> These are **example commands**. Check the repository's actual file names, prerequisites, environment variables, firewall rules, and service names before running them. Never commit secrets or paste private keys into this README.
 
 ### Prerequisites
 
-- Docker Desktop or Docker Engine with the Compose plugin
-- The project source and its Docker Compose file
+- An Ubuntu AWS EC2 instance with Docker Engine and the Docker Compose plugin installed.
+- Git, if cloning the project onto the instance.
+- Network access limited to the ports needed by your deployment.
+- The repository's required configuration values supplied through a protected environment file or secret manager, as applicable.
 
-From the repository root—the directory containing the Compose file—validate the configuration and start the stack:
+### Example deployment flow
 
-~~~bash
+```bash
+# Example only: replace with the actual repository URL and directory.
+git clone [REPOSITORY_URL]
+cd [REPOSITORY_DIRECTORY]
+
+# Inspect the Compose configuration and required environment variables first.
 docker compose config
-docker compose up --build -d
-~~~
 
-Check container status and follow logs:
+# Start services after configuring required values.
+docker compose up -d --build
 
-~~~bash
+# Check service state and recent logs.
 docker compose ps
-docker compose logs -f
-~~~
+docker compose logs --tail=100
+```
 
-If the Compose file publishes the ports listed above, open:
+### Example access points
 
-- Application: <http://localhost:5000>
-- Prometheus: <http://localhost:9090>
-- Grafana: <http://localhost:3000>
-- cAdvisor: <http://localhost:8080>
+Use only the endpoints and ports actually published by your Compose configuration:
 
-Stop the stack when finished:
+- Application: `http://[EC2_PUBLIC_DNS_OR_IP]:[APP_PORT]`
+- Prometheus: `http://[EC2_PUBLIC_DNS_OR_IP]:[PROMETHEUS_PORT]`
+- Grafana: `http://[EC2_PUBLIC_DNS_OR_IP]:[GRAFANA_PORT]`
 
-~~~bash
-docker compose down
-~~~
+Do not expose monitoring interfaces publicly without appropriate access controls. Prefer a VPN, SSH tunnel, private network, or authenticated reverse proxy.
 
-This stops and removes the containers and network created by Compose. Named volumes are retained unless you explicitly remove them.
+## 7. Observability & Telemetry
 
-## ☁️ Deploy on AWS EC2
+The stated stack includes cAdvisor, Prometheus, and Grafana. Their actual coverage depends on the Compose services, Prometheus scrape configuration, and Grafana data source and dashboards.
 
-1. Launch an Ubuntu LTS EC2 instance sized for the application and monitoring workload.
-2. Use an EC2 security group that allows SSH only from your trusted IP address.
-3. Install Docker Engine and the Docker Compose plugin using the current official Docker instructions for Ubuntu.
-4. Clone or copy this repository onto the instance.
-5. Review the Compose configuration, environment variables, port mappings, and persistent volumes.
-6. Start the stack from the repository root:
+Verify and document:
 
-   ~~~bash
-   docker compose up --build -d
-   ~~~
+- Prometheus scrape targets in `[PROMETHEUS_CONFIG_PATH]`.
+- Application metrics endpoint, if any: `[APP_METRICS_ENDPOINT]`.
+- cAdvisor endpoint and scrape job, if enabled: `[CADVISOR_TARGET]`.
+- Grafana data source and dashboard provisioning, if configured.
+- Actual metric names and labels. Do not assume a metric exists because it appears in an example dashboard.
 
-7. Verify service status with **docker compose ps**, then review logs with **docker compose logs -f**.
+Potential areas to monitor, where exposed by configured metrics, include container CPU and memory use, network traffic, target availability, and application request behavior. Add alerting only if alert rules and a notification path are implemented.
 
-For remote access, allow only the required application port to its intended audience. Restrict Grafana to trusted operator IPs and keep Prometheus and cAdvisor inaccessible from the public internet.
+## 8. Self-Healing & Recovery
 
-## 📊 Observability
+“Self-healing” should describe verified behavior in this repository. Docker restart policies can restart a stopped container, but they do not automatically fix bad configuration, data corruption, dependency failures, or a process that stays alive while serving errors.
 
-- **Prometheus** collects application and container metrics according to its scrape configuration.
-- **cAdvisor** provides container-level CPU, memory, network, and filesystem telemetry.
-- **Grafana** can query Prometheus to display trends and operational dashboards.
-- **Health checks** report service health; restart policies define how exited containers are handled.
+Record the actual recovery mechanisms here:
 
-To verify telemetry, confirm that the configured scrape targets are reachable in Prometheus and that Grafana uses the correct Prometheus data source.
+- Compose restart policy: `[POLICY_OR_NOT_CONFIGURED]`.
+- Health checks: `[SERVICES_WITH_HEALTHCHECKS_OR_NONE]`.
+- Application-level recovery logic: `[IMPLEMENTED_BEHAVIOR_OR_NONE]`.
+- Alerting and operator response: `[RULES_AND_NOTIFICATION_PATH_OR_NONE]`.
 
-## 🔐 Security and cost
+Example Compose setting (illustrative only; use only if present and appropriate):
 
-- Do not expose the Docker daemon or Docker socket to the public internet.
-- Use a strong Grafana administrator password and store secrets outside source control.
-- Restrict SSH and monitoring access with security group rules.
-- Prefer an EC2 instance role for AWS access instead of long-lived access keys.
-- EC2 compute, EBS storage, public IPv4 addresses, load balancers, and data transfer can incur charges. Stop or terminate the instance when it is no longer needed, and check for retained volumes and other resources.
+```yaml
+restart: unless-stopped
+```
 
-## 🧰 Troubleshooting
+To inspect or restart a service, substitute its real Compose service name:
 
-**A container exits or restarts**
-
-~~~bash
+```bash
 docker compose ps
-docker compose logs <service-name>
-~~~
+docker compose logs --tail=100 [SERVICE_NAME]
+docker compose restart [SERVICE_NAME]
+```
 
-Check the service logs, health-check configuration, and restart policy in the Compose file.
+## 9. Troubleshooting
 
-**Prometheus has no application metrics**
+| Symptom | Checks |
+|---|---|
+| A service is not running | Review `docker compose ps` and `docker compose logs [SERVICE_NAME]`; confirm required environment values and image build output. |
+| Application endpoint is unreachable | Confirm the container is healthy or running, the port is published, the EC2 security group and host firewall allow the intended source, and the application binds to the expected interface. |
+| Prometheus target is down | Check the target's configured address from Prometheus's network, the scrape path and port, and the target service state. Use the actual target name from the configuration. |
+| Grafana has no data | Confirm Grafana's Prometheus data source URL, Prometheus target health, time range, and that the dashboard queries use real metric names. |
+| Container repeatedly restarts | Inspect logs and exit status; verify configuration, resource availability, dependencies, and health-check behavior before changing restart settings. |
+| SSH session disconnects | Reconnect using the correct key and EC2 address. Check server status and network connectivity; avoid editing files in an interrupted remote session until verifying whether changes were saved. |
 
-Check the application metrics endpoint and the target address in the Prometheus scrape configuration. From inside the Compose network, targets generally use the Compose service name and container port.
+Useful example commands (service names are placeholders):
 
-**Grafana shows no data**
+```bash
+docker compose ps
+docker compose logs --tail=100 [SERVICE_NAME]
+docker compose config
+docker stats
+```
 
-Confirm that Prometheus is running, that scrape targets are healthy, and that Grafana's Prometheus data source points to the Prometheus service on the Compose network.
+## 10. Security Best Practices
 
-**A browser cannot reach a service on EC2**
+- Restrict SSH and application access to trusted source addresses wherever practical.
+- Keep secrets, private keys, passwords, and production environment files out of Git.
+- Use least-privilege IAM and host access; avoid unnecessary public exposure of Prometheus, Grafana, or cAdvisor.
+- Use strong, unique Grafana credentials and enable authentication for any remotely accessible dashboard.
+- Keep Ubuntu, Docker, Python dependencies, and container images maintained.
+- Use pinned image and dependency versions where appropriate, and review updates before deployment.
+- Use TLS for traffic that crosses untrusted networks.
+- Back up configuration and any persistent data that matters; test recovery procedures.
+- Review container privileges, mounted host paths, and published ports in the Compose file.
 
-Confirm that the service port is published by Compose, the EC2 security group permits the intended source, and the application is listening on the container interface.
+## 11. Future Enhancements
 
-## 💼 Resume-ready summary
+These are possible extensions, not statements about current implementation:
 
-> Built a Docker Compose observability stack on AWS EC2 with a Flask/Gunicorn service, cAdvisor, Prometheus, and Grafana; configured health checks, container restart behavior, and runtime metrics dashboards.
+- Add application metrics and health endpoints with clearly documented semantics.
+- Add Prometheus alert rules and a tested notification channel.
+- Provision Grafana dashboards and data sources from version-controlled configuration.
+- Add automated build, lint, and deployment workflows.
+- Add TLS termination, authentication, and centralized secret management.
+- Add persistent storage and documented backup and restore procedures where needed.
+- Add resource limits, health checks, and dependency readiness checks after validating service behavior.
+- Add automated deployment rollback and recovery tests.
 
-Only add claims such as high availability, zero downtime, alerting, or measured recovery times after validating them in the deployed environment.
+## 12. Resume & Portfolio Highlights
 
+Adapt these bullets to match work you personally completed and can demonstrate:
+
+- Built a Docker Compose deployment for a Python Flask application served by Gunicorn on Ubuntu in AWS EC2.
+- Configured container and service telemetry with cAdvisor and Prometheus, and visualized available metrics in Grafana. *(Use only if these components are configured and working.)*
+- Documented operational checks and recovery procedures for a multi-container deployment.
+- Implemented and validated `[SPECIFIC HEALTH CHECK, RESTART POLICY, ALERT, OR RECOVERY FEATURE]`. *(Replace with a concrete verified feature or remove.)*
+
+## 13. Skills Demonstrated
+
+Select only skills demonstrated by the actual implementation:
+
+- AWS EC2 and Ubuntu administration
+- Docker and Docker Compose
+- Python and Flask
+- Gunicorn and WSGI deployment
+- Prometheus metrics collection
+- Grafana dashboards and PromQL
+- cAdvisor container monitoring
+- Linux troubleshooting and service operations
+- Application and infrastructure observability
+- Deployment documentation and security fundamentals
+
+---
+
+## Repository Verification Checklist
+
+Before publishing this README, confirm each item against the repository and deployed environment:
+
+- [ ] Replace all `[PLACEHOLDER]` values or remove sections that do not apply.
+- [ ] Confirm Compose filename, service names, ports, images, volumes, and restart policies.
+- [ ] Confirm the Flask entry point, Gunicorn command, and application route(s).
+- [ ] Confirm Prometheus scrape targets, intervals, paths, and actual metric names.
+- [ ] Confirm Grafana access method, data source, dashboards, and authentication.
+- [ ] Confirm the actual EC2 network rules and do not publish private monitoring ports unintentionally.
+- [ ] Run the documented commands in a safe environment and revise them to match the deployed setup.
+- [ ] Remove any claim about alerts, health checks, recovery, or automation that is not implemented and verified.
