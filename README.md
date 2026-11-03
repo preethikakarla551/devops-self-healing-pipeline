@@ -1,39 +1,33 @@
-# Self-Healing DevOps CI/CD Pipeline for AWS EC2
+# 🚀 Self-Healing Microservices & Observability Pipeline
 
-![Build Status](https://img.shields.io/github/actions/workflow/status/preethikakarla551/devops-self-healing-pipeline/deploy.yml?branch=main&label=CI/CD%20Pipeline)
-![AWS](https://img.shields.io/badge/AWS-EC2-orange?logo=amazon-aws)
-![Docker](https://img.shields.io/badge/Docker-Compose-blue?logo=docker)
-![Nginx](https://img.shields.io/badge/Nginx-Reverse%20Proxy-green?logo=nginx)
-![Flask](https://img.shields.io/badge/Flask-Microservice-black?logo=flask)
+[![AWS EC2](https://img.shields.io/badge/AWS-EC2-FF9900?logo=amazon-aws&logoColor=white)](https://aws.amazon.com/ec2/)
+[![Docker](https://img.shields.io/badge/Docker-Containerized-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
+[![Prometheus](https://img.shields.io/badge/Prometheus-Telemetry-E6522C?logo=prometheus&logoColor=white)](https://prometheus.io/)
+[![Grafana](https://img.shields.io/badge/Grafana-Visualization-F46800?logo=grafana&logoColor=white)](https://grafana.com/)
+[![Python](https://img.shields.io/badge/Python-3.x-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-An automated, fault-tolerant DevOps pipeline featuring continuous integration/continuous deployment (CI/CD) and automated self-healing capabilities for a Flask microservice deployed on AWS EC2.
+An enterprise-grade, 4-container microservice telemetry and self-healing infrastructure deployed on AWS EC2. This pipeline features automated health monitoring, lightweight Python container health checks, cAdvisor resource metrics ingestion, and live Grafana visualization dashboards.
 
 ---
 
-## Architecture & System Design Flow
+## 🏗 Architecture Overview
 
-The project consists of three main operational phases: **CI/CD Deployment**, **Production Runtime Routing**, and **Automated Self-Healing**.
-
-```mermaid
-graph TD
-    subgraph 1. CI/CD Deployment Trigger
-        A[Developer Push to main] -->|Git Push| B[GitHub Repository]
-        B -->|Triggers Workflow| C[GitHub Actions Runner]
-        C -->|SSH Auth via EC2_SSH_KEY| D[AWS EC2 Instance 52.66.249.190]
-    end
-
-    subgraph 2. Production Runtime Environment
-        D -->|Pulls Code & Rebuilds| E[Docker Compose]
-        E -->|Runs Container| F[Flask Web App web_app Port 5000]
-        G[Public User / Client] -->|HTTP Request Port 80| H[Nginx Reverse Proxy]
-        H -->|Proxy Pass Port 5000| F
-    end
-
-    subgraph 3. Automated Self-Healing Mechanism
-        I[Linux Crontab Every 2 Min] -->|Executes| J[scripts/health_check.sh]
-        J -->|Polls GET /health| F
-        J -- HTTP 200 OK --> K[Log Healthy Status]
-        J -- HTTP Error / Timeout --> L[Trigger docker restart web_app]
-        L -->|Auto-Recovery| F
-        L -->|Audit Record| M[Write to /var/log/app_health.log]
-    end
+```text
+                      +------------------------------------+
+                      |           AWS EC2 Host             |
+                      |  (Ubuntu / Docker Compose Engine)  |
+                      +------------------------------------+
+                                         |
+     +-----------------+-----------------+-----------------+-----------------+
+     |                 |                                   |                 |
+     v                 v                                   v v
++----------+    +--------------+                    +------------+    +------------+
+| Web App  |    |   cAdvisor   |                    | Prometheus |    |  Grafana   |
+| (Flask)  |<---| (Container   |                    | (Telemetry |--->| (Dashboard |
+| Port 5000|    |   Metrics)   |                    |   Engine)  |    |    UI)     |
++----------+    |  Port 8080   |                    | Port 9090  |    | Port 3000  |
+     ^          +--------------+                    +------------+    +------------+
+     |                 |                                   ^
+     +-----------------+-----------------------------------+
+                             Scrape Targets Interval (5s)
