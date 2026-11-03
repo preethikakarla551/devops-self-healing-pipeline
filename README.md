@@ -1,8 +1,15 @@
 # Automated Self-Healing Microservices & Telemetry Pipeline
 
-> **Repository-specific setup required:** This README is a polished project template based on the stated technology stack. The source repository was not available while preparing it. Replace every `[PLACEHOLDER]`, verify every example service name, endpoint, metric, port, path, and command against your actual files, and remove any capability that your implementation does not provide.
-
-<!-- Optional: add a project banner or architecture image here. -->
+![AWS EC2](https://img.shields.io/badge/AWS_EC2-FF9900?style=for-the-badge&logo=amazonaws&logoColor=white)
+![Ubuntu](https://img.shields.io/badge/Ubuntu-E95420?style=for-the-badge&logo=ubuntu&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
+![Docker Compose](https://img.shields.io/badge/Docker_Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![Flask](https://img.shields.io/badge/Flask-000000?style=for-the-badge&logo=flask&logoColor=white)
+![Gunicorn](https://img.shields.io/badge/Gunicorn-499848?style=for-the-badge)
+![cAdvisor](https://img.shields.io/badge/cAdvisor-00A3E0?style=for-the-badge)
+![Prometheus](https://img.shields.io/badge/Prometheus-E6522C?style=for-the-badge&logo=prometheus&logoColor=white)
+![Grafana](https://img.shields.io/badge/Grafana-F46800?style=for-the-badge&logo=grafana&logoColor=white)
 
 ## 1. Project Overview
 
@@ -24,16 +31,22 @@ The project is intended to make deployment repeatable and operational behavior e
 The diagram below is a **reference layout**, not a claim that every connection or endpoint is configured in this repository. Update service names, ports, and scrape targets to match the Compose and Prometheus configuration.
 
 ```mermaid
-flowchart LR
-    U["User or client"] -->|"HTTP to APP_PORT"| APP["Flask application"]
-    APP -. "served by" .-> GUNI["Gunicorn"]
-    CAD["cAdvisor"] -->|"container metrics on CADVISOR_PORT"| PROM["Prometheus"]
-    APP -. "optional metrics at METRICS_PATH" .-> PROM
-    PROM -->|"PromQL queries"| GRAF["Grafana dashboards"]
-    EC2["AWS EC2: Ubuntu"] --- APP
-    EC2 --- CAD
-    EC2 --- PROM
-    EC2 --- GRAF
+flowchart TB
+    CLIENT([User / Browser])
+
+    subgraph CLOUD["AWS EC2 · Ubuntu"]
+        subgraph APP_LAYER["Application · Docker Compose"]
+            APP["Flask app"] --> GUNI["Gunicorn"]
+        end
+
+        subgraph MONITORING["Telemetry · Docker Compose"]
+            CAD["cAdvisor"] -->|"container metrics"| PROM["Prometheus"]
+            APP -. "optional app metrics" .-> PROM
+            PROM -->|"queries"| GRAF["Grafana"]
+        end
+    end
+
+    CLIENT -->|"HTTP request"| GUNI
 ```
 
 ### Data Flow
@@ -218,7 +231,4 @@ Select only skills demonstrated by the actual implementation:
 - Linux troubleshooting and service operations
 - Application and infrastructure observability
 - Deployment documentation and security fundamentals
-
-
-
 
