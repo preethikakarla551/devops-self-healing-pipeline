@@ -1,3 +1,4 @@
+import json
 from time import perf_counter
 
 from flask import Flask, Response, g, jsonify, request
@@ -26,19 +27,27 @@ def start_request_timer():
 def record_request_metrics(response):
     if request.endpoint != "metrics":
         endpoint = request.endpoint or "unmatched"
-        HTTP_REQUESTS.labels(request.method, endpoint, str(response.status_code)).inc()
+        HTTP_REQUESTS.labels(
+            request.method, endpoint, str(response.status_code)
+        ).inc()
         HTTP_REQUEST_DURATION.labels(request.method, endpoint).observe(
             perf_counter() - g.request_started_at
         )
     return response
 
+
 @app.route("/")
 def home():
-    return jsonify({
+    data = {
         "status": "healthy",
         "service": "DevOps Microservice Portal",
-        "version": "1.0.0"
-    }), 200
+        "version": "1.0.0",
+    }
+    return Response(
+        json.dumps(data, indent=2),
+        mimetype="application/json",
+    )
+
 
 @app.route("/health")
 def health():
@@ -48,6 +57,7 @@ def health():
 @app.route("/metrics")
 def metrics():
     return Response(generate_latest(), mimetype=CONTENT_TYPE_LATEST)
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
