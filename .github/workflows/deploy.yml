@@ -24,7 +24,7 @@ jobs:
       - name: Build application image
         run: docker compose build web_app
       - name: Validate Prometheus configuration and alert rules
-        run: docker run --rm -v "$PWD/monitoring:/etc/prometheus:ro" prom/prometheus:latest promtool check config /etc/prometheus/prometheus.yml
+        run: docker run --rm --entrypoint=promtool -v "$PWD/monitoring:/etc/prometheus:ro" prom/prometheus:latest check config /etc/prometheus/prometheus.yml
       - name: Validate Grafana dashboard JSON
         run: python -m json.tool monitoring/grafana/dashboards/devops-overview.json > /dev/null
 
