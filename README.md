@@ -232,6 +232,12 @@ Skills represented in the repository:
 - Application and infrastructure observability
 - Deployment documentation and security fundamentals
 
+### Application response
+
+The app returns a readable JSON response:
+
+![Formatted JSON response from the app](docs/app-response-proof.png)
+
 ## Recovery proof
 
 ![EC2 recovery proof showing the container restart and successful health check on Ubuntu](docs/recovery-proof-EC2.png)
