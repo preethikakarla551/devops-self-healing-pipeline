@@ -235,3 +235,11 @@ Skills represented in the repository:
 ## Recovery proof
 
 ![EC2 recovery proof showing the container restart and successful health check on Ubuntu](docs/recovery-proof-EC2.png)
+
+## Grafana Monitoring Dashboard
+
+Prometheus scrapes the Flask app and cAdvisor. Grafana displays request rate, latency, scrape availability, and container resource usage.
+
+![Grafana dashboard overview](docs/grafana-dashboard-overview.png)
+
+![Container CPU usage](docs/grafana-container-metrics.png)
