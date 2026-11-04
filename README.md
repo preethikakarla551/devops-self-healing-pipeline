@@ -28,7 +28,7 @@ The `web_app` service uses a Docker health check and the `restart: always` polic
 
 ## 3. Architecture Overview
 
-The diagram below is a **reference layout**, not a claim that every connection or endpoint is configured in this repository. Update service names, ports, and scrape targets to match the Compose and Prometheus configuration.
+The diagram reflects the configured Compose services and Prometheus scrape flow.
 
 ```mermaid
 flowchart TB
@@ -41,7 +41,7 @@ flowchart TB
 
         subgraph MONITORING["Telemetry · Docker Compose"]
             CAD["cAdvisor"] -->|"container metrics"| PROM["Prometheus"]
-            APP -. "optional app metrics" .-> PROM
+            APP -->|"/metrics"| PROM
             PROM -->|"queries"| GRAF["Grafana"]
         end
     end
@@ -51,14 +51,10 @@ flowchart TB
 
 ### Data Flow
 
-1. A client sends a request to the published application endpoint, if one is configured.
-2. Gunicorn serves the Flask application, if it is the configured process entry point.
-3. cAdvisor exposes container telemetry when its service is enabled and reachable.
-4. Prometheus scrapes the targets and metrics paths defined in its configuration.
-5. Grafana queries the configured Prometheus data source and renders dashboards.
-6. An operator reviews the available telemetry and investigates service or resource issues.
-
-Confirm the actual ports, scrape interval, targets, metrics path, and Grafana data source in the repository before relying on this flow.
+1. Gunicorn serves the Flask application and exposes request counters and latency histograms at `/metrics`.
+2. Prometheus scrapes the Flask app and cAdvisor every five seconds and evaluates the rules in `monitoring/alerts.yml`.
+3. Grafana loads its Prometheus data source and dashboard from the version-controlled provisioning files.
+4. Operators inspect request rate, p95 latency, scrape target availability, and container CPU and memory usage.
 
 ## 4. Technology Stack
 
@@ -70,10 +66,10 @@ Confirm the actual ports, scrape interval, targets, metrics path, and Grafana da
 | Docker Compose | Multi-container application definition and lifecycle |
 | Python | Application language |
 | Flask | Web application framework |
-| Gunicorn | WSGI application server, if configured as the runtime |
-| cAdvisor | Container resource telemetry, if enabled |
-| Prometheus | Metrics scraping and time-series storage, if configured |
-| Grafana | Metrics visualization, if configured |
+| Gunicorn | WSGI application server |
+| cAdvisor | Container CPU and memory telemetry |
+| Prometheus | Scrapes app and container metrics and evaluates availability alert rules |
+| Grafana | Provisioned Prometheus data source and service overview dashboard |
 
 ## 5. Key Engineering Highlights
 
@@ -83,6 +79,9 @@ The repository includes:
 - **Repeatable startup:** Docker Compose builds and runs the application and monitoring services.
 - **Process recovery:** Docker restarts the application container when its main process exits; the recovery script verifies the restart count and health endpoint.
 - **Container telemetry:** cAdvisor is configured as a Prometheus scrape target.
+- **Application observability:** `/metrics` exports HTTP request counts and request duration histograms.
+- **Dashboards and alerts:** Grafana dashboard and Prometheus availability rules are provisioned from the repository.
+- **CI/CD:** GitHub Actions validates Compose, builds the application image, checks monitoring configuration, then deploys to EC2 when configured.
 - **Operational guidance:** Bash script and instructions for deployment, recovery, and cleanup.
 
 ## 6. Deployment & Quick Start
@@ -93,6 +92,7 @@ These commands target Ubuntu/Linux Bash. On EC2, connect over SSH and run them t
 
 - An Ubuntu AWS EC2 instance with Docker Engine and the Docker Compose plugin installed.
 - Git, if cloning the project onto the instance.
+- A strong Grafana admin password stored in `.env` (never commit this file).
 - Network access limited to the ports needed by your deployment.
 - An EC2 instance or other Ubuntu host with enough disk space for the container images.
 
@@ -101,6 +101,8 @@ These commands target Ubuntu/Linux Bash. On EC2, connect over SSH and run them t
 ```bash
 git clone https://github.com/preethikakarla551/devops-self-healing-pipeline.git
 cd devops-self-healing-pipeline
+cp .env.example .env
+# Edit .env and replace the placeholder with a strong, unique password.
 sudo docker compose config
 sudo docker compose up -d --build
 sudo docker compose ps
@@ -113,17 +115,26 @@ When Docker requires elevated privileges, prefix Docker commands with `sudo`.
 
 - Flask application: `http://localhost:5000/`
 - Health check: `http://localhost:5000/health`
+- Application metrics: `http://localhost:5000/metrics`
 - Prometheus: host port `9090`
 - Grafana: host port `3000`
-- cAdvisor: host port `8080` (container port `8080`). If port 8080 is already in use on your local machine, change the Compose mapping to `8081:8080` and use `http://localhost:8081`.
+- cAdvisor: host port `8081` (container port `8080`).
 
-Do not expose monitoring interfaces publicly without access controls. Prefer a VPN, SSH tunnel, private network, or authenticated reverse proxy.
+Prometheus, Grafana, and cAdvisor bind to localhost on the host; they are not published to the public network. For an EC2 deployment, view Grafana and Prometheus through an SSH tunnel, for example:
+
+```bash
+ssh -i <your-key.pem> -L 3000:127.0.0.1:3000 -L 9090:127.0.0.1:9090 ubuntu@<EC2_PUBLIC_IP>
+```
+
+Then open Grafana at `http://localhost:3000` and sign in as `admin` with the password from `.env`. The GitHub Actions deploy workflow also needs repository secrets named `EC2_HOST`, `EC2_USERNAME`, `EC2_SSH_KEY`, and `GRAFANA_ADMIN_PASSWORD`.
 
 ## 7. Observability & Telemetry
 
-Prometheus uses `monitoring/prometheus.yml` to scrape `web_app:5000` and `cadvisor:8080`. The Flask app currently has `/` and `/health` routes, but does not expose a Prometheus `/metrics` endpoint; therefore the `flask_app` scrape target will not provide application metrics until instrumentation is added. cAdvisor exposes container metrics. Grafana is included, but no provisioned data source or dashboard is present in this repository.
+The Flask app exports `flask_http_requests_total` (method, endpoint, and status labels) and `flask_http_request_duration_seconds` (method and endpoint labels). Metrics requests are excluded from these application measurements. Prometheus scrapes `web_app:5000/metrics` and `cadvisor:8080`; the `up` metric shows scrape target availability.
 
-Check Prometheus target status at `http://localhost:9090/targets`. Add Flask metrics instrumentation and Grafana provisioning if you want application-level charts.
+Grafana provisions the Prometheus data source and `DevOps Service Overview` dashboard automatically. The dashboard includes request rate, p95 latency, target availability, and cAdvisor container CPU/memory charts. Prometheus defines `FlaskApplicationDown` and `CAdvisorDown` rules in `monitoring/alerts.yml`. These rules are visible in Prometheus, but no Alertmanager or email/chat notification receiver is configured.
+
+Check target status at `http://localhost:9090/targets` and rule status at `http://localhost:9090/alerts`.
 
 ## 8. Self-Healing & Recovery
 
@@ -182,16 +193,18 @@ curl --fail http://localhost:5000/health
 
 ## 11. Future Enhancements
 
-These are possible extensions, not statements about current implementation:
+Optional next steps beyond this portfolio demo:
 
-- Add application metrics and health endpoints with clearly documented semantics.
-- Add Prometheus alert rules and a tested notification channel.
-- Provision Grafana dashboards and data sources from version-controlled configuration.
-- Add automated build, lint, and deployment workflows.
 - Add TLS termination, authentication, and centralized secret management.
-- Add persistent storage and documented backup and restore procedures where needed.
-- Add resource limits, health checks, and dependency readiness checks after validating service behavior.
+- Configure Alertmanager and test a real notification receiver.
+- Add an authenticated reverse proxy if dashboards must be accessed remotely.
+- Pin and regularly update container base images and monitoring image versions.
+- Add application-level tests and resource limits as the service grows.
 - Add automated deployment rollback and recovery tests.
+
+## CI/CD workflow
+
+The GitHub Actions workflow runs when application, Docker, monitoring, or workflow files change on `main`, and can also be started manually. It validates the Compose configuration, builds the application image, checks the Prometheus rules and Grafana dashboard JSON, and then deploys the updated stack over SSH. Configure the four repository secrets listed above before enabling automatic EC2 deployment. The workflow does not run an application test suite yet.
 
 ## 12. Resume & Portfolio Highlights
 
@@ -199,20 +212,22 @@ Use only claims you have personally run and verified:
 
 - Containerized a Flask/Gunicorn service and monitoring stack with Docker Compose.
 - Configured Docker health checks and restart policy; demonstrated recovery after terminating the application process.
-- Collected container telemetry with cAdvisor and configured Prometheus scrape targets.
-- After verifying on EC2, add the instance deployment and recovery details you observed there.
+- Exported Flask request and latency metrics and configured Prometheus to scrape the app and cAdvisor.
+- Provisioned Grafana dashboards and Prometheus availability alert rules as code.
+- Deployed the stack to Ubuntu on EC2 and demonstrated Docker restart recovery (see the recovery proof below).
 
 ## 13. Skills Demonstrated
 
 Skills represented in the repository:
 
-- Ubuntu/Linux administration (add EC2 deployment only after verifying it)
+- Ubuntu/Linux administration on AWS EC2
 - Docker and Docker Compose
 - Python and Flask
 - Gunicorn and WSGI deployment
-- Prometheus metrics collection
-- Grafana dashboards and PromQL
+- Prometheus application/container metrics, PromQL, and alert rules
+- Grafana provisioning and dashboards
 - cAdvisor container monitoring
+- GitHub Actions CI/CD and SSH-based EC2 deployment
 - Linux troubleshooting and service operations
 - Application and infrastructure observability
 - Deployment documentation and security fundamentals

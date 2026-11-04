@@ -8,10 +8,28 @@ on:
       - "Dockerfile"
       - "docker-compose.yml"
       - "monitoring/**"
+      - ".github/workflows/**"
   workflow_dispatch:
 
 jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Prepare CI environment
+        run: cp .env.example .env
+      - name: Validate Compose configuration
+        run: docker compose config -q
+      - name: Build application image
+        run: docker compose build web_app
+      - name: Validate Prometheus configuration and alert rules
+        run: docker run --rm -v "$PWD/monitoring:/etc/prometheus:ro" prom/prometheus:latest promtool check config /etc/prometheus/prometheus.yml
+      - name: Validate Grafana dashboard JSON
+        run: python -m json.tool monitoring/grafana/dashboards/devops-overview.json > /dev/null
+
   deploy:
+    needs: validate
     runs-on: ubuntu-latest
 
     steps:
@@ -20,16 +38,22 @@ jobs:
 
       - name: Deploy to AWS EC2
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          GRAFANA_ADMIN_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD }}
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
+          envs: GRAFANA_ADMIN_PASSWORD
           script: |
             set -eu
+            : "${GRAFANA_ADMIN_PASSWORD:?Set the GRAFANA_ADMIN_PASSWORD GitHub Actions secret}"
             repo_dir="$HOME/devops-self-healing-pipeline"
             if [ ! -d "$repo_dir/.git" ]; then
               git clone https://github.com/${{ github.repository }}.git "$repo_dir"
             fi
+            printf 'GRAFANA_ADMIN_PASSWORD=%s\n' "$GRAFANA_ADMIN_PASSWORD" > "$repo_dir/.env"
+            chmod 600 "$repo_dir/.env"
             cd "$repo_dir"
             git pull --ff-only origin main
             sudo docker compose up -d --build
